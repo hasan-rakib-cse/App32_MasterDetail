@@ -1,0 +1,228 @@
+﻿@model List<App32_MasterDetail.Models.Product>
+@{
+    ViewData["Title"] = "Sales Invoice";
+}
+
+<h3 class="alert alert-primary">Sales Invoice</h3>
+
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="form-group">
+            <label class="control-label">Invoice No</label>
+            <input name="InvoiceNo" id="InvoiceNo" value="XXXXXXX" class="form-control" readonly />
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="form-group">
+            <label class="control-label">Invoice Date</label>
+            <input name="InvoiceDate" id="InvoiceDate" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-group">
+            <label class="control-label">Customer</label>
+            <input name="Customer" id="Customer" class="form-control" />
+        </div>
+    </div>
+
+</div>
+
+<p></p>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="input-group">
+            <select id="prod" class="form-control">
+                @if (Model != null)
+                {
+                    @foreach (var item in Model)
+                    {
+                        <option value="@item.Id"> @item.Name</option>                        
+                    }
+                }
+            </select>
+            <span class="ms-2 me-2">Unit Price</span>
+            <input type="number" id="uprice" class="form-control" value="0" readonly />
+            <span class="ms-2 me-2">Quantity</span>
+            <input type="number" id="qty" class="form-control" value="1" />
+            <span class="ms-2 me-2">Subtotal</span>
+            <input type="number" id="subtot" class="form-control" value="0" readonly />
+            <input type="button" id="btnAdd" class="btn btn-success btn-sm" value="Add"/>
+        </div>
+    </div>
+</div>
+
+<br />
+<div class="row">
+    <div class="col-md-12">
+        <table class="table table-striped">
+            <thead id="tbhead">
+
+            </thead>
+            <tbody id="tbdata">
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<br />
+<div class="row">
+    <div class="col-md-10">
+
+    </div>
+    <div class="col-md-2">
+        <div class="form-group">
+            <input type="submit" id="btnSave" value="Save Invoice" class="btn btn-primary" />
+        </div>
+    </div>
+</div>
+
+
+@section Scripts{
+    <script>
+        $(document).ready(function () {
+
+            let calculate_subtotal = function () {
+                let p = $('#uprice').val();
+                let q = $('#qty').val();
+                $('#subtot').val(p * q);
+            }
+
+            let clearForm = function () {
+                $('#tbhead').empty();
+                $('#tbbody').empty();
+                $('#Customer').val('');
+            }
+
+            let showLineItem = function () {
+
+                $.ajax({
+                    url: '/SalesMasters/ShowLineItem',
+                    method: 'POST',
+                    cache: false,
+                    dataType: 'JSON',
+                    success: function (mydata) {
+                        if (mydata.flag == '1') {
+                            $('#tbhead').empty();
+                            $('#tbdata').empty();
+
+                            console.log('Action is Successful : ' + mydata.msg);
+                            let h = '<tr><th>SL</th><th> Product Name</th><th>Unit Price </th><th> Quantity </th><th> Sub Total</th></tr>';
+                            $('#tbhead').append(h);
+
+                            $.each(mydata.data, function (i, obj) {
+                                let d = '<tr><td>' + (i + 1) + '</td><td>' + obj.name + '</td><td>' + obj.price + '</td><td>' + obj.quantity + '</td><td>' + obj.subTotal + '</td></tr>';
+                                $('#tbdata').append(d);
+                            });
+                        }
+                        else {
+                            $('#tbhead').empty();
+                            $('#tbdata').empty();
+
+                            console.log('Sorry ! Action is Failed : ' + mydata.msg);
+                        }
+                        //window.location.href = '/Cart/ShoppingCart';
+                    },
+                    error: function (err) {
+                        console.log('Failed');
+                    }
+                });
+
+            }
+
+            $('#prod').on('click', function () {
+                let id = $('#prod option:selected').val();
+                //alert('Selected ' + id);
+                console.log('Selected ' + id);
+
+                $.ajax({
+                    url: '/SalesMasters/getPrice',
+                    method: 'POST',
+                    cache: false,
+                    data: { 'id': id },
+                    dataType: 'JSON',
+                    success: function (mydata) {
+                        if (mydata.flag == '1') {
+                            console.log('Action is Successful : ' + mydata.msg);
+                            //let q = $('#qty').val();
+                            let p = mydata.price;
+                            $('#uprice').val(p);
+                            //$('#subtot').val(p * q);
+                            calculate_subtotal();
+                        }
+                        else {
+                            console.log('Sorry ! Action is Failed : ' + mydata.msg);
+                        }
+                        //window.location.href = '/Cart/ShoppingCart';
+                    },
+                    error: function (err) {
+                        console.log('Failed');
+                    }
+                });
+            });
+
+            $('#qty').on('keyup change', function () {
+                calculate_subtotal();
+            });
+
+
+            $('#btnAdd').on('click', function () {
+                let pid = $('#prod option:selected').val();
+                let qty = $('#qty').val();
+
+                $.ajax({
+                    url: '/SalesMasters/AddToCart',
+                    method: 'POST',
+                    cache: false,
+                    data: { 'pid': pid, 'qty': qty },
+                    dataType: 'JSON',
+                    success: function (mydata) {
+                        if (mydata.flag == '1') {
+                            console.log('Action is Successful : ' + mydata.msg);
+                            showLineItem();
+                        }
+                        else {
+                            console.log('Sorry ! Action is Failed : ' + mydata.msg);
+                        }
+                        //window.location.href = '/Cart/ShoppingCart';
+                    },
+                    error: function (err) {
+                        console.log('Failed');
+                    }
+                });
+
+            });
+
+            $('#btnSave').on('click', function () {
+                let cust = $('#Customer').val();
+
+                $.ajax({
+                    url: '/SalesMasters/SaveInvoice',
+                    method: 'POST',
+                    cache: false,
+                    data: { 'Customer': cust },
+                    dataType: 'JSON',
+                    success: function (mydata) {
+                        if (mydata.flag == '1') {
+                            console.log('Action is Successful : ' + mydata.msg);
+                            clearForm();
+                            showLineItem();
+                        }
+                        else {
+                            console.log('Sorry ! Action is Failed : ' + mydata.msg);
+                            // Swal.fire({
+                            //     mydata.msg;
+                            // })
+                        }
+                        //window.location.href = '/Cart/ShoppingCart';
+                    },
+                    error: function (err) {
+                        console.log('Failed');
+                    }
+                });
+            });
+        });
+    </script>
+}
